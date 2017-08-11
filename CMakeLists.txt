@@ -8,9 +8,18 @@ set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
 set(include_files
+    src/Coordinates.h
+    src/Map.h
+    src/Tools.h
+    src/Traffic.h
+    src/Vehicle.h
 )
 
 set(source_files
+    src/Map.cpp
+    src/Tools.cpp
+    src/Traffic.cpp
+    src/Vehicle.cpp
     src/main.cpp)
 
 set(all_files

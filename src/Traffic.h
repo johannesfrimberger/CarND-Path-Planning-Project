@@ -4,9 +4,12 @@
 #include "json.hpp"
 
 #include "Coordinates.h"
+#include "VehicleState.h"
 
 // for convenience
 using json = nlohmann::json;
+
+class VehicleState;
 
 /**  */
 class Traffic
@@ -15,11 +18,30 @@ public:
     
     Traffic(const json input);
     
+    const WorldCoordinates& getWorldCoordinats() const
+    {
+        return world;
+    }
+    
+    const FrenetCoordinates& getFrenet() const
+    {
+        return frenet;
+    }
+    
+    const double getSpeed() const
+    {
+        return speed.getLength();
+    }
+    
+    void addToRelevantList(std::vector<Traffic>& front, std::vector<Traffic>& rear, const VehicleState& ego) const;
+    
+    Traffic simulate(const double dt) const;
+    
 private:
     
-    const WorldCoordinates world;
-    const WorldCoordinates speed;
-    const FrenetCoordinates frenet;
+    WorldCoordinates world;
+    WorldCoordinates speed;
+    FrenetCoordinates frenet;
     const unsigned id;
     
 };

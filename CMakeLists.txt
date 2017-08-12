@@ -13,6 +13,7 @@ set(include_files
     src/Tools.h
     src/Traffic.h
     src/Vehicle.h
+    src/VehicleState.h
 )
 
 set(source_files
@@ -20,6 +21,7 @@ set(source_files
     src/Tools.cpp
     src/Traffic.cpp
     src/Vehicle.cpp
+    src/VehicleState.cpp
     src/main.cpp)
 
 set(all_files

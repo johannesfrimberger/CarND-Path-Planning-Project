@@ -34,6 +34,8 @@ int main()
     
     // Waypoint map to read from
     string map_file = "../../data/highway_map.csv";
+    
+    // Initialize map and vehicle class
     Map map(map_file);
     Vehicle vehicle(map);
     
@@ -47,7 +49,6 @@ int main()
         //cout << sdata << endl;
         if (length && length > 2 && data[0] == '4' && data[1] == '2')
         {
-            
             auto s = hasData(data);
             
             if (s != "")
@@ -62,7 +63,6 @@ int main()
                     
                     //this_thread::sleep_for(chrono::milliseconds(1000));
                     ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-                    
                 }
             }
             else
@@ -88,8 +88,9 @@ int main()
         }
     });
     
-    h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
+    h.onConnection([&h, &vehicle](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
         std::cout << "Connected!!!" << std::endl;
+        vehicle.reset();
     });
     
     h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code,

@@ -23,3 +23,13 @@ void Tools::splitWorldCoordinates(std::vector<double>& x_vector, std::vector<dou
         y_vector.push_back(el.getY());
     }
 }
+
+double Tools::mps2mph(const double x)
+{
+    return x * 2.24;
+}
+
+double Tools::mph2mps(const double x)
+{
+    return x / 2.24;
+}

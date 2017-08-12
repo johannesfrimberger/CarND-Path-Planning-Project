@@ -25,6 +25,18 @@ public:
         return WorldCoordinates(this->x - b.x, this->y - b.y);
     }
     
+    // Overload * operator
+    WorldCoordinates operator*(const WorldCoordinates& b) const
+    {
+        return WorldCoordinates(this->x * b.x, this->y * b.y);
+    }
+    
+    // Overload * operator
+    WorldCoordinates operator*(const double& b) const
+    {
+        return WorldCoordinates(this->x * b, this->y * b);
+    }
+    
     double getX() const
     {
         return x;
@@ -35,17 +47,22 @@ public:
         return y;
     }
     
-    double getDistance(const WorldCoordinates ref) const
+    double getDistance(const WorldCoordinates& ref) const
     {
         return sqrt(pow(ref.x - x, 2) + pow(ref.y - y, 2));
     }
     
-    double getHeading(const WorldCoordinates ref) const
+    double getLength() const
+    {
+        return  sqrt(pow(x, 2) + pow(y, 2));
+    }
+    
+    double getHeading(const WorldCoordinates& ref) const
     {
         return atan2((ref.y - y), (ref.x - x));
     }
     
-    WorldCoordinates getProjection(const WorldCoordinates ref) const
+    WorldCoordinates getProjection(const WorldCoordinates& ref) const
     {
         const double proj_norm = (ref.x * x + ref.y * y) / (x * x + y * y);
         return WorldCoordinates(proj_norm * x, proj_norm * y);
@@ -67,6 +84,30 @@ public:
     s(s_in),
     d(d_in)
     { }
+    
+    // Overload + operator
+    FrenetCoordinates operator+(const FrenetCoordinates& b) const
+    {
+        return FrenetCoordinates(this->s + b.s, this->d + b.d);
+    }
+    
+    // Overload - operator
+    FrenetCoordinates operator-(const FrenetCoordinates& b) const
+    {
+        return FrenetCoordinates(this->s - b.s, this->d - b.d);
+    }
+    
+    // Overload * operator
+    FrenetCoordinates operator*(const FrenetCoordinates& b) const
+    {
+        return FrenetCoordinates(this->s * b.s, this->d * b.d);
+    }
+    
+    // Overload * operator
+    FrenetCoordinates operator*(const double& b) const
+    {
+        return FrenetCoordinates(this->s * b, this->d * b);
+    }
 
     double getS() const
     {
@@ -76,6 +117,16 @@ public:
     double getD() const
     {
         return d;
+    }
+    
+    double getDistance(const FrenetCoordinates& ref) const
+    {
+        return (s - ref.s);
+    }
+    
+    unsigned getLane() const
+    {
+        return static_cast<unsigned>(d / 4.0);
     }
     
 private:

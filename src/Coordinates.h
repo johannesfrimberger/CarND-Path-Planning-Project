@@ -53,8 +53,8 @@ public:
     
 private:
     
-    const double x;
-    const double y;
+    double x;
+    double y;
     
 };
 
@@ -80,8 +80,8 @@ public:
     
 private:
     
-    const double s;
-    const double d;
+    double s;
+    double d;
     
 };
 

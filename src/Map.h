@@ -42,6 +42,9 @@ public:
     
 private:
     
+    // The max s value before wrapping around the track back to 0
+    const double max_s = 6945.554;
+    
     unsigned getClosestWaypoint(const WorldCoordinates& pos) const;
     
     unsigned getNextWaypoint(const WorldCoordinates& pos, const double theta) const;

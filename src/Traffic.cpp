@@ -22,23 +22,31 @@ Traffic Traffic::simulate(const double dt) const
     return simulated_obj;
 }
 
-void Traffic::addToRelevantList(std::vector<Traffic>& front, std::vector<Traffic>& rear, const VehicleState& ego) const
+void Traffic::addToRelevantList(std::vector<RelativTraffic>& front, std::vector<RelativTraffic>& rear, const VehicleState& ego) const
 {
-    const double distance = frenet.getDistance(ego.getFrenet());
-    
+    const RelativTraffic rel(*this, ego);
+
     // In front
-    if(distance > 0.0)
+    if(rel.isVehicleInFront())
     {
-        if(distance < 30.0)
+        if(rel.getDistance() < 200.0)
         {
-            front.push_back(*this);
+            front.push_back(rel);
         }
     }
     else
     {
-        if(distance < -30.0)
+        if(rel.getDistance() < 50.0)
         {
-            rear.push_back(*this);
+            rear.push_back(rel);
         }
     }
+}
+
+RelativTraffic::RelativTraffic(const Traffic traffic, const VehicleState& ego):
+Traffic(traffic)
+{
+    const double d = frenet.getDistance(ego.getFrenet());
+    in_front = (d > 0.0);
+    distance = fabs(d);
 }

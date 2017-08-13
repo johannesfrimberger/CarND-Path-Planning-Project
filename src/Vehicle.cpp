@@ -17,15 +17,69 @@ void Vehicle::reset()
     ref_vel = 0.0;
     target_lane = 1;
     ref_lane = 1;
+    pathPlannerState = KEEP_LANE;
 }
 
-double Vehicle::getClosestElement(const std::vector<Traffic>& traffic) const
+std::string Vehicle::ppSToString(const Vehicle::PathPlannerStateType state) const
+{
+    switch(state)
+    {
+        case KEEP_LANE:
+            return "KEEP_LANE";
+        case PREPARE_CHANGE_LEFT:
+            return "PREPARE_CHANGE_LEFT";
+        case PREPARE_CHANGE_RIGHT:
+            return "PREPARE_CHANGE_RIGHT";
+        case CHANGE_LEFT:
+            return "CHANGE_LEFT";
+        case CHANGE_RIGHT:
+            return "CHANGE_RIGHT";
+        case PREPARE_CHANGE_2ndLEFT:
+            return "PREPARE_CHANGE_2ndLEFT";
+        case PREPARE_CHANGE_2ndRIGHT:
+            return "PREPARE_CHANGE_2ndRIGHT";
+        case CHANGE_2ndLEFT:
+            return "CHANGE_2ndLEFT";
+        case CHANGE_2ndRIGHT:
+            return "CHANGE_2ndRIGHT";
+        case EXIT_STRATEGY:
+            return "EXIT_STRATEGY";
+        default:
+            return "Invalid";
+    }
+}
+
+bool Vehicle::isChangeToLeftLaneBenefitial()
+{
+    const double closestElementThisLane = getClosestElement(this_lane_in_front);
+    const double closestElementLeft = getClosestElement(left_lane_in_front);
+    const double closestElementInBack = getClosestElement(left_lane_in_back);
+    const int current_lane = state.getFrenet().getLane();
+
+    const double diff = closestElementLeft - closestElementThisLane;
+    std::cout << "Diff " << diff << std::endl;
+    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane - 1) && (closestElementInBack > C_DIST_TRAFFIC_BACK);
+}
+
+bool Vehicle::isChangeToRightLaneBenefitial()
+{
+    const double closestElementThisLane = getClosestElement(this_lane_in_front);
+    const double closestElementRight = getClosestElement(right_lane_in_front);
+    const double closestElementInBack = getClosestElement(right_lane_in_back);
+    const int current_lane = state.getFrenet().getLane();
+    
+    const double diff = closestElementRight - closestElementThisLane;
+    std::cout << "Diff " << diff << std::endl;
+    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane + 1) && (closestElementInBack > C_DIST_TRAFFIC_BACK);
+}
+
+double Vehicle::getClosestElement(const std::vector<RelativTraffic>& traffic) const
 {
     double min_distance = 1000;
     
     for(auto el : traffic)
     {
-        const double distance = el.getFrenet().getDistance(state.getFrenet());
+        const double distance = el.getDistance();
         if(distance < min_distance)
         {
             min_distance = distance;
@@ -35,7 +89,7 @@ double Vehicle::getClosestElement(const std::vector<Traffic>& traffic) const
     return min_distance;
 }
 
-double Vehicle::getSpeedOfClosestElement(const std::vector<Traffic>& traffic, const double default_speed) const
+double Vehicle::getSpeedOfClosestElement(const std::vector<RelativTraffic>& traffic, const double default_speed) const
 {
     double speed = -1;
     
@@ -45,7 +99,7 @@ double Vehicle::getSpeedOfClosestElement(const std::vector<Traffic>& traffic, co
         
         for(auto el : traffic)
         {
-            const double distance = el.getFrenet().getDistance(state.getFrenet());
+            const double distance = el.getDistance();
             if(distance < min_distance)
             {
                 min_distance = distance;
@@ -199,42 +253,243 @@ json Vehicle::generate_target_path()
     return msgJson;
 }
 
+Vehicle::PathPlannerStateType Vehicle::updateKeepLane()
+{
+    const double closestElementThisLane = getClosestElement(this_lane_in_front);
+    
+    // Do nothing and stay in lane if all vehicles are more than 50m in front
+    if(closestElementThisLane > C_DIST_STAY_IN_LANE)
+    {
+        target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
+        //std::cout << "Stay in lane with "<< target_speed << " m/s, closest element is " << closestElementThisLane << " away" << std::endl;
+        
+        return KEEP_LANE;
+    }
+    
+    // Check which is the best lane to change to
+    bool leftBenefetial = isChangeToLeftLaneBenefitial();
+    bool rightBenefetial = isChangeToRightLaneBenefitial();
+    
+    if(leftBenefetial && rightBenefetial)
+    {
+        const double closestElementLeft = getClosestElement(left_lane_in_front);
+        const double closestElementRight = getClosestElement(right_lane_in_front);
+        
+        if(closestElementLeft < closestElementRight)
+        {
+            leftBenefetial = false;
+        }
+    }
+    
+    if(leftBenefetial)
+    {
+        return PREPARE_CHANGE_LEFT;
+    }
+    else if(rightBenefetial)
+    {
+        return PREPARE_CHANGE_RIGHT;
+    }
+    
+    if(closestElementThisLane < C_DIST_REDUCE_SPEED)
+    {
+        // If we have to stay in lane adapt speed
+        target_speed = getSpeedOfClosestElement(this_lane_in_front, target_speed);
+        std::cout << "Adapt speed to target " << target_speed << std::endl;
+    }
+    else
+    {
+        target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
+    }
+    
+    return KEEP_LANE;
+}
+
+Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeLeft()
+{
+    // Check if lane change is safe
+    const double closestElementInBack = getClosestElement(left_lane_in_back);
+    
+    if(!isChangeToLeftLaneBenefitial())
+    {
+        std::cout << "Change to left lane is no longer benefitial" << std::endl;
+        return KEEP_LANE;
+    }
+    
+    if((closestElementInBack > C_DIST_TRAFFIC_BACK))
+    {
+        target_lane -= 1U;
+        return CHANGE_LEFT;
+    }
+    
+    std::cout << "Waiting to change to left lane due to element in back at " << closestElementInBack << std::endl;
+    
+    const double closestElementThisLane = getClosestElement(this_lane_in_front);
+    if(closestElementThisLane < C_DIST_REDUCE_SPEED)
+    {
+        // If we have to stay in lane adapt speed
+        target_speed = getSpeedOfClosestElement(this_lane_in_front, target_speed);
+        std::cout << "Adapt speed to target " << target_speed << std::endl;
+    }
+    else
+    {
+        target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
+    }
+    
+    // State is eithe
+    return pathPlannerState;
+}
+
+Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeRight()
+{
+    // Check if lane change is safe
+    const double closestElementInBack = getClosestElement(right_lane_in_back);
+    
+    if(!isChangeToRightLaneBenefitial())
+    {
+        std::cout << "Change to right lane is no longer benefitial" << std::endl;
+        return KEEP_LANE;
+    }
+    
+    if((closestElementInBack > C_DIST_TRAFFIC_BACK))
+    {
+        target_lane += 1U;
+        return CHANGE_RIGHT;
+    }
+    
+    std::cout << "Waiting to change to right lane due to element in back at " << closestElementInBack << std::endl;
+    
+    const double closestElementThisLane = getClosestElement(this_lane_in_front);
+    if(closestElementThisLane < C_DIST_REDUCE_SPEED)
+    {
+        // If we have to stay in lane adapt speed
+        target_speed = getSpeedOfClosestElement(this_lane_in_front, target_speed);
+        std::cout << "Adapt speed to target " << target_speed << std::endl;
+    }
+    else
+    {
+        target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
+    }
+    
+    // State is eithe
+    return pathPlannerState;
+}
+
+Vehicle::PathPlannerStateType Vehicle::updateChangeLeft()
+{
+    // If we are currently changing lane check if new lane has already been reached
+    if(fabs(state.getFrenet().getLane() - target_lane) < 0.1)
+    {
+        return KEEP_LANE;
+    }
+    else
+    {
+        std::cout << "Changing Lane " << fabs(ref_lane - target_lane) << " " << target_lane << std::endl;
+        return CHANGE_LEFT;
+    }
+}
+
+Vehicle::PathPlannerStateType Vehicle::updateChangeRight()
+{
+    // If we are currently changing lane check if new lane has already been reached
+    if(fabs(state.getFrenet().getLane() - target_lane) < 0.1)
+    {
+        return KEEP_LANE;
+    }
+    else
+    {
+        std::cout << "Changing Lane " << fabs(ref_lane - target_lane) << " " << target_lane << std::endl;
+        return CHANGE_RIGHT;
+    }
+}
+
 void Vehicle::plan_behavior()
 {
-    // Find closest traffic in each lane
-    std::vector<Traffic> middle_lane_in_front;
-    std::vector<Traffic> left_lane_in_front;
-    std::vector<Traffic> right_lane_in_front;
-    std::vector<Traffic> middle_lane_in_back;
-    std::vector<Traffic> left_lane_in_back;
-    std::vector<Traffic> right_lane_in_back;
+    // Find relevant traffic in each lane
+    left_lane_in_front.clear();
+    left_lane_in_back.clear();
+    left_2nd_lane_in_front.clear();
+    left_2nd_lane_in_back.clear();
+    this_lane_in_front.clear();
+    this_lane_in_back.clear();
+    right_lane_in_front.clear();
+    right_lane_in_back.clear();
+    right_2nd_lane_in_front.clear();
+    right_2nd_lane_in_back.clear();
+    
+    
+    const int current_lane = state.getFrenet().getLane();
 
     for(auto traffic : sensed_traffic)
     {
         Traffic simulated_traffic = traffic.simulate(state.getNumberOfPreviousPathElements() * 0.02);
-        
-        switch(traffic.getFrenet().getLane())
+        const int lane_diff = current_lane - static_cast<int>(traffic.getFrenet().getLane());
+        switch(lane_diff)
         {
-            case 0U:
-                traffic.addToRelevantList(left_lane_in_front, left_lane_in_back, state);
+            case -2:
+                traffic.addToRelevantList(right_2nd_lane_in_front, right_2nd_lane_in_back, state);
                 break;
-            case 1U:
-                traffic.addToRelevantList(middle_lane_in_front, middle_lane_in_back, state);
-                break;
-            case 2U:
+            case -1:
                 traffic.addToRelevantList(right_lane_in_front, right_lane_in_back, state);
                 break;
+            case 0:
+                traffic.addToRelevantList(this_lane_in_front, this_lane_in_back, state);
+                break;
+            case 1:
+                traffic.addToRelevantList(left_lane_in_front, left_lane_in_back, state);
+                break;
+            case 2:
+                traffic.addToRelevantList(left_2nd_lane_in_front, left_2nd_lane_in_back, state);
+                break;
             default:
-                std::cout << "invalid lane id received" << std::endl;
+                std::cout << "Invalid lane id of a traffic element received" << std::endl;
         }
     }
+
+    /*
+    std::cout << "Left lane has " << left_lane_in_back.size() << " vehicles in back" << std::endl;
+    std::cout << "This lane has " << this_lane_in_back.size() << " vehicles in back" << std::endl;
+    std::cout << "Right lane has " << right_lane_in_back.size() << " vehicles in back" << std::endl;
+    */
     
-    std::cout << "Left lane has " << left_lane_in_front.size() << " vehicles in front" << std::endl;
-    std::cout << "Middle lane has " << middle_lane_in_front.size() << " vehicles in front" << std::endl;
-    std::cout << "Right lane has " << right_lane_in_front.size() << " vehicles in front" << std::endl;
+    PathPlannerStateType new_state = KEEP_LANE;
     
-    const unsigned current_lane = state.getFrenet().getLane();
+    switch(pathPlannerState)
+    {
+        case KEEP_LANE:
+            new_state = updateKeepLane();
+            break;
+        case PREPARE_CHANGE_LEFT:
+        case PREPARE_CHANGE_2ndLEFT:
+            new_state = updatePrepareChangeLeft();
+            break;
+        case PREPARE_CHANGE_RIGHT:
+        case PREPARE_CHANGE_2ndRIGHT:
+            new_state = updatePrepareChangeRight();
+            break;
+        case CHANGE_LEFT:
+            new_state = updateChangeLeft();
+            break;
+        case CHANGE_RIGHT:
+            new_state = updateChangeRight();
+            break;
+        default:
+            std::cout << "Invalid pathPlannerState, set to KEEP_LANE" << std::endl;
+            break;
+    }
     
+    if(pathPlannerState != new_state)
+    {
+        std::cout << "Update state from " << ppSToString(pathPlannerState) << " to " << ppSToString(new_state) << std::endl;
+        pathPlannerState = new_state;
+    }
+    else
+    {
+        std::cout << "Stay in state: " << ppSToString(pathPlannerState) << std::endl;
+    }
+    
+    /*
+     
+     const unsigned current_lane = state.getFrenet().getLane();
     if(changing_lane)
     {
         // If we are currently changing lane check if new lane has already been reached
@@ -349,14 +604,12 @@ void Vehicle::plan_behavior()
         default:
             break;
     }
+    
+    */
 }
 
 json Vehicle::get_path(const json input)
 {
-    //
-    target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
-    
-    
     // Update current vehicle status
     state.update(input);
     

@@ -10,6 +10,7 @@
 using json = nlohmann::json;
 
 class VehicleState;
+class RelativTraffic;
 
 /**  */
 class Traffic
@@ -33,11 +34,11 @@ public:
         return speed.getLength();
     }
     
-    void addToRelevantList(std::vector<Traffic>& front, std::vector<Traffic>& rear, const VehicleState& ego) const;
+    void addToRelevantList(std::vector<RelativTraffic>& front, std::vector<RelativTraffic>& rear, const VehicleState& ego) const;
     
     Traffic simulate(const double dt) const;
     
-private:
+protected:
     
     WorldCoordinates world;
     WorldCoordinates speed;
@@ -45,5 +46,27 @@ private:
     const unsigned id;
     
 };
+
+class RelativTraffic : public Traffic
+{
+public:
+    RelativTraffic(const Traffic traffic, const VehicleState& ego);
+    
+    double getDistance() const
+    {
+        return distance;
+    }
+    
+    bool isVehicleInFront() const
+    {
+        return in_front;
+    }
+    
+private:
+    
+    double distance;
+    bool in_front;
+};
+
 
 #endif //_TRAFFIC_H_

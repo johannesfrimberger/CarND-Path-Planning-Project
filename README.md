@@ -5,9 +5,16 @@ Self-Driving Car Engineer Nanodegree Program
 
 ### Code Structure
 
+
+
 #### Coordinate Systems
 
+The position of the car is either given in an XY coordinate tuple or with frenet coordinates.
+For both the ```Coordinates.h``` header provides an object to store the information
+
 #### Map
+
+The map data is stored in a single object.
 
 #### Traffic
 
@@ -15,7 +22,51 @@ Self-Driving Car Engineer Nanodegree Program
 
 #### Vehicle
 
+The vehicle object brings it all together.
+
+It first reads the current vehicle data and stores it as an
+```VehicleState``` object. After that the ```Traffic``` object is updated
+with the latest sensor readings. This is pushed to the behavior planner
+which updates the target speed and lane. With all this information a
+new trajectory is generated. This information flow is part of the
+```get_path``` method.
+
+The core element of the vehicle is the behavior planning algorithm.
+
+```c
+/** State of path planning algorithm */
+enum PathPlannerStateType
+{
+    KEEP_LANE,
+    PREPARE_CHANGE_LEFT,
+    PREPARE_CHANGE_RIGHT,
+    CHANGE_LEFT,
+    CHANGE_RIGHT,
+    PREPARE_CHANGE_2ndLEFT,
+    PREPARE_CHANGE_2ndRIGHT,
+    CHANGE_2ndLEFT,
+    CHANGE_2ndRIGHT,
+    EXIT_STRATEGY
+};
+```
+
+ ```KEEP_LANE```
+
+The states PREPARE_CHANGE_2ndLEFT, PREPARE_CHANGE_2ndRIGHT,
+CHANGE_2ndLEFT, CHANGE_2ndRIGHT and EXIT_STRATEGY are not implemented yet.
+
+
 ### Further development
+
+The current implementation drives smoothly and safe. Nevertheless some
+(possible) improvements already showed up during implementation.
+
+- Consider 2nd lane ahead as an option :no_entry_sign:
+- Check which is the "fastest" lane before changing :no_entry_sign:
+- Develop an exit strategy if we get stuck behind another
+vehicle :no_entry_sign:
+- Adapt hard-coded distances for safe lane change to speed of
+traffic objects :no_entry_sign:
 
 ## Original description
 

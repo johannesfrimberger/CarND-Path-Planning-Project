@@ -30,6 +30,8 @@ private:
     
     /** */
     json generate_target_path();
+
+    double getClosestElement(const std::vector<Traffic>& traffic) const;
     
     double getSpeedOfClosestElement(const std::vector<Traffic>& traffic, const double default_speed) const;
     
@@ -46,7 +48,7 @@ private:
     double ref_lane;
     
     double target_speed;
-    double target_lane;
+    unsigned target_lane;
     
     bool changing_lane;
     

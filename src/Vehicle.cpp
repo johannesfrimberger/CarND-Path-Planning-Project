@@ -19,6 +19,22 @@ void Vehicle::reset()
     ref_lane = 1;
 }
 
+double Vehicle::getClosestElement(const std::vector<Traffic>& traffic) const
+{
+    double min_distance = 1000;
+    
+    for(auto el : traffic)
+    {
+        const double distance = el.getFrenet().getDistance(state.getFrenet());
+        if(distance < min_distance)
+        {
+            min_distance = distance;
+        }
+    }
+    
+    return min_distance;
+}
+
 double Vehicle::getSpeedOfClosestElement(const std::vector<Traffic>& traffic, const double default_speed) const
 {
     double speed = -1;
@@ -84,11 +100,8 @@ json Vehicle::generate_target_path()
     // Short access to current s frenet coordinate
     const double car_s = state.getFrenet().getS();
     
-    // Adjust current velocity
-    double max_steering = 0.05;
-    
-    std::cout << "Ref " << ref_lane << " target " << target_lane << std::endl;
-    
+    // Adjust ref_lane slowely to target_lane to avoid too much acceleration
+    double max_steering = 0.02;
     if(ref_lane > target_lane)
     {
         ref_lane -= max_steering;
@@ -199,6 +212,7 @@ void Vehicle::plan_behavior()
     for(auto traffic : sensed_traffic)
     {
         Traffic simulated_traffic = traffic.simulate(state.getNumberOfPreviousPathElements() * 0.02);
+        
         switch(traffic.getFrenet().getLane())
         {
             case 0U:
@@ -224,15 +238,100 @@ void Vehicle::plan_behavior()
     if(changing_lane)
     {
         // If we are currently changing lane check if new lane has already been reached
-        if(fabs(state.getFrenet().getD() - target_lane) < 0.1)
+        if(fabs(ref_lane- target_lane) < 0.1)
         {
             changing_lane = false;
         }
+        else
+        {
+            std::cout << "Changing Lane " << fabs(ref_lane - target_lane) << std::endl;
+        }
     }
-    // If we are not changing lane look if there is a better lane
+    // If we are not already changing lane look if there is a better lane
     else
     {
+        unsigned updated_lane = target_lane;
+        switch(current_lane)
+        {
+            case 0U:
+                // Consider middle and right lane for change
+                if(left_lane_in_front.size() > 0)
+                {
+                    const double distance = getClosestElement(left_lane_in_front);
+                    const double distance_middle = getClosestElement(middle_lane_in_front);
+                    const double distance_right = getClosestElement(right_lane_in_front);
+                    
+                    if(distance_middle > distance)
+                    {
+                        std::cout << "Swicht to middle lane" << std::endl;
+                        updated_lane = 1U;
+                    }
+                }
+                break;
+            case 1U:
+                // Consider left and right lane for change
+                if(middle_lane_in_front.size() > 0)
+                {
+                    const double distance = getClosestElement(middle_lane_in_front);
+                    const double distance_left = getClosestElement(left_lane_in_front);
+                    const double distance_right = getClosestElement(right_lane_in_front);
+                    
+                    if(distance_left > distance_right)
+                    {
+                        if(distance_left > distance)
+                        {
+                            std::cout << "Swicht to left lane" << std::endl;
+                            updated_lane = 0U;
+                        }
+                        else if(distance_right > distance)
+                        {
+                            std::cout << "Swicht to right lane" << std::endl;
+                            updated_lane = 2U;
+                        }
+                    }
+                    else
+                    {
+                        if(distance_right > distance)
+                        {
+                            std::cout << "Swicht to right lane" << std::endl;
+                            updated_lane = 2U;
+                        }
+                        else if(distance_left > distance)
+                        {
+                            std::cout << "Swicht to left lane" << std::endl;
+                            updated_lane = 0U;
+                        }
+                    }
+                    
+                    
+                }
+                break;
+            case 2U:
+                // Consider left and middle lane for change
+                if(right_lane_in_front.size() > 0)
+                {
+                    const double distance = getClosestElement(right_lane_in_front);
+                    const double distance_middle = getClosestElement(middle_lane_in_front);
+                    const double distance_left = getClosestElement(left_lane_in_front);
+                    
+                    if(distance_middle > distance)
+                    {
+                        std::cout << "Swicht to middle lane" << std::endl;
+                        updated_lane = 1U;
+                    }
+                }
+                break;
+            default:
+                std::cout << "Ego Vehicle in invalid lane" << std::endl;
+                break;
+        }
         
+        if(target_lane != updated_lane)
+        {
+            
+            target_lane = updated_lane;
+            changing_lane = true;
+        }
     }
     
     // Adjust speed to speed in current lane

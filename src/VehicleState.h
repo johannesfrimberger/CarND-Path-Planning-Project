@@ -56,6 +56,8 @@ public:
         return yaw;
     }
     
+    VehicleState simulate(const double dt) const;
+    
 private:
     
     std::vector<WorldCoordinates> previous_path;

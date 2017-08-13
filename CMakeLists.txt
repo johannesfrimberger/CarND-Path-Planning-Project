@@ -22,11 +22,13 @@ set(source_files
     src/Traffic.cpp
     src/Vehicle.cpp
     src/VehicleState.cpp
-    src/main.cpp)
+    src/main.cpp
+)
 
 set(all_files
     ${include_files}
-    ${source_files})
+    ${source_files}
+)
 
 SOURCE_GROUP(include FILES ${include_files})
 SOURCE_GROUP(src FILES ${source_files})
@@ -40,7 +42,6 @@ link_directories(/usr/local/opt/openssl/lib)
 link_directories(/usr/local/Cellar/libuv/1.11.0/lib)
 
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-
 
 add_executable(path_planning ${all_files})
 

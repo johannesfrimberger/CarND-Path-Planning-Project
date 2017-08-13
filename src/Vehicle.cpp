@@ -20,6 +20,11 @@ void Vehicle::reset()
     pathPlannerState = KEEP_LANE;
 }
 
+void Vehicle::setMaxSpeed()
+{
+    target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
+}
+
 std::string Vehicle::ppSToString(const Vehicle::PathPlannerStateType state) const
 {
     switch(state)
@@ -57,7 +62,7 @@ bool Vehicle::isChangeToLeftLaneBenefitial()
     const int current_lane = state.getFrenet().getLane();
 
     const double diff = closestElementLeft - closestElementThisLane;
-    std::cout << "Diff " << diff << std::endl;
+
     return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane - 1) && (closestElementInBack > C_DIST_TRAFFIC_BACK);
 }
 
@@ -69,7 +74,7 @@ bool Vehicle::isChangeToRightLaneBenefitial()
     const int current_lane = state.getFrenet().getLane();
     
     const double diff = closestElementRight - closestElementThisLane;
-    std::cout << "Diff " << diff << std::endl;
+
     return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane + 1) && (closestElementInBack > C_DIST_TRAFFIC_BACK);
 }
 
@@ -156,13 +161,29 @@ json Vehicle::generate_target_path()
     
     // Adjust ref_lane slowely to target_lane to avoid too much acceleration
     double max_steering = 0.02;
-    if(ref_lane > target_lane)
+    if(fabs(ref_lane - target_lane) > 0.019)
     {
-        ref_lane -= max_steering;
+        if(ref_lane > target_lane)
+        {
+            ref_lane -= max_steering;
+        }
+        else if(ref_lane < target_lane)
+        {
+            ref_lane += max_steering;
+        }
     }
-    else if(ref_lane < target_lane)
+    else
     {
-        ref_lane += max_steering;
+        // Adjust current velocity
+        double max_acc = 0.224;
+        if(ref_vel > target_speed)
+        {
+            ref_vel -= max_acc;
+        }
+        else if(ref_vel < target_speed)
+        {
+            ref_vel += max_acc;
+        }
     }
     
     // Saturate 
@@ -212,17 +233,6 @@ json Vehicle::generate_target_path()
     
     double x_add_on = 0.0;
     
-    // Adjust current velocity
-    double max_acc = 0.224;
-    if(ref_vel > target_speed)
-    {
-        ref_vel -= max_acc;
-    }
-    else if(ref_vel < target_speed)
-    {
-        ref_vel += max_acc;
-    }
-    
     const unsigned target_n_waypoints = 50;
     
     for(int i = 0; i < target_n_waypoints - prev_size;i++)
@@ -260,9 +270,7 @@ Vehicle::PathPlannerStateType Vehicle::updateKeepLane()
     // Do nothing and stay in lane if all vehicles are more than 50m in front
     if(closestElementThisLane > C_DIST_STAY_IN_LANE)
     {
-        target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
-        //std::cout << "Stay in lane with "<< target_speed << " m/s, closest element is " << closestElementThisLane << " away" << std::endl;
-        
+        setMaxSpeed();
         return KEEP_LANE;
     }
     
@@ -294,11 +302,10 @@ Vehicle::PathPlannerStateType Vehicle::updateKeepLane()
     {
         // If we have to stay in lane adapt speed
         target_speed = getSpeedOfClosestElement(this_lane_in_front, target_speed);
-        std::cout << "Adapt speed to target " << target_speed << std::endl;
     }
     else
     {
-        target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
+        setMaxSpeed();
     }
     
     return KEEP_LANE;
@@ -311,7 +318,6 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeLeft()
     
     if(!isChangeToLeftLaneBenefitial())
     {
-        std::cout << "Change to left lane is no longer benefitial" << std::endl;
         return KEEP_LANE;
     }
     
@@ -321,14 +327,11 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeLeft()
         return CHANGE_LEFT;
     }
     
-    std::cout << "Waiting to change to left lane due to element in back at " << closestElementInBack << std::endl;
-    
     const double closestElementThisLane = getClosestElement(this_lane_in_front);
     if(closestElementThisLane < C_DIST_REDUCE_SPEED)
     {
         // If we have to stay in lane adapt speed
         target_speed = getSpeedOfClosestElement(this_lane_in_front, target_speed);
-        std::cout << "Adapt speed to target " << target_speed << std::endl;
     }
     else
     {
@@ -346,7 +349,6 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeRight()
     
     if(!isChangeToRightLaneBenefitial())
     {
-        std::cout << "Change to right lane is no longer benefitial" << std::endl;
         return KEEP_LANE;
     }
     
@@ -355,15 +357,12 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeRight()
         target_lane += 1U;
         return CHANGE_RIGHT;
     }
-    
-    std::cout << "Waiting to change to right lane due to element in back at " << closestElementInBack << std::endl;
-    
+
     const double closestElementThisLane = getClosestElement(this_lane_in_front);
     if(closestElementThisLane < C_DIST_REDUCE_SPEED)
     {
         // If we have to stay in lane adapt speed
         target_speed = getSpeedOfClosestElement(this_lane_in_front, target_speed);
-        std::cout << "Adapt speed to target " << target_speed << std::endl;
     }
     else
     {
@@ -383,7 +382,6 @@ Vehicle::PathPlannerStateType Vehicle::updateChangeLeft()
     }
     else
     {
-        std::cout << "Changing Lane " << fabs(ref_lane - target_lane) << " " << target_lane << std::endl;
         return CHANGE_LEFT;
     }
 }
@@ -397,7 +395,6 @@ Vehicle::PathPlannerStateType Vehicle::updateChangeRight()
     }
     else
     {
-        std::cout << "Changing Lane " << fabs(ref_lane - target_lane) << " " << target_lane << std::endl;
         return CHANGE_RIGHT;
     }
 }

@@ -38,7 +38,6 @@ private:
     };
     
     const double C_SPEED_LIMIT_MPH = 49.5;
-    
     const double C_DIST_STAY_IN_LANE = 50.0;
     const double C_DIST_REDUCE_SPEED = 25.0;
     const double C_DIST_TRAFFIC_BACK = 8.0;
@@ -70,6 +69,9 @@ private:
         return (new_lane >= 0) && (new_lane <= 2);
     }
     
+    void setMaxSpeed();
+    
+    // Convert PathPlannerStateType to string
     std::string ppSToString(const PathPlannerStateType state) const;
     
     // Reference to map
@@ -100,9 +102,6 @@ private:
     unsigned target_lane;
     
     PathPlannerStateType pathPlannerState;
-    
-    bool changing_lane;
-    
 };
 
 #endif //_VEHICLE_H_

@@ -441,16 +441,11 @@ void Vehicle::plan_behavior()
                 traffic.addToRelevantList(left_2nd_lane_in_front, left_2nd_lane_in_back, state);
                 break;
             default:
-                std::cout << "Invalid lane id of a traffic element received" << std::endl;
+                std::cout << "Invalid lane of a traffic element " << traffic.getId() << std::endl;
         }
     }
 
-    /*
-    std::cout << "Left lane has " << left_lane_in_back.size() << " vehicles in back" << std::endl;
-    std::cout << "This lane has " << this_lane_in_back.size() << " vehicles in back" << std::endl;
-    std::cout << "Right lane has " << right_lane_in_back.size() << " vehicles in back" << std::endl;
-    */
-    
+    // Update PathPlanner state
     PathPlannerStateType new_state = KEEP_LANE;
     
     switch(pathPlannerState)
@@ -459,11 +454,9 @@ void Vehicle::plan_behavior()
             new_state = updateKeepLane();
             break;
         case PREPARE_CHANGE_LEFT:
-        case PREPARE_CHANGE_2ndLEFT:
             new_state = updatePrepareChangeLeft();
             break;
         case PREPARE_CHANGE_RIGHT:
-        case PREPARE_CHANGE_2ndRIGHT:
             new_state = updatePrepareChangeRight();
             break;
         case CHANGE_LEFT:
@@ -477,135 +470,12 @@ void Vehicle::plan_behavior()
             break;
     }
     
+    // Update internal state
     if(pathPlannerState != new_state)
     {
         std::cout << "Update state from " << ppSToString(pathPlannerState) << " to " << ppSToString(new_state) << std::endl;
         pathPlannerState = new_state;
     }
-    else
-    {
-        std::cout << "Stay in state: " << ppSToString(pathPlannerState) << std::endl;
-    }
-    
-    /*
-     
-     const unsigned current_lane = state.getFrenet().getLane();
-    if(changing_lane)
-    {
-        // If we are currently changing lane check if new lane has already been reached
-        if(fabs(ref_lane- target_lane) < 0.1)
-        {
-            changing_lane = false;
-        }
-        else
-        {
-            std::cout << "Changing Lane " << fabs(ref_lane - target_lane) << std::endl;
-        }
-    }
-    // If we are not already changing lane look if there is a better lane
-    else
-    {
-        unsigned updated_lane = target_lane;
-        switch(current_lane)
-        {
-            case 0U:
-                // Consider middle and right lane for change
-                if(left_lane_in_front.size() > 0)
-                {
-                    const double distance = getClosestElement(left_lane_in_front);
-                    const double distance_middle = getClosestElement(middle_lane_in_front);
-                    const double distance_right = getClosestElement(right_lane_in_front);
-                    
-                    if(distance_middle > distance)
-                    {
-                        std::cout << "Swicht to middle lane" << std::endl;
-                        updated_lane = 1U;
-                    }
-                }
-                break;
-            case 1U:
-                // Consider left and right lane for change
-                if(middle_lane_in_front.size() > 0)
-                {
-                    const double distance = getClosestElement(middle_lane_in_front);
-                    const double distance_left = getClosestElement(left_lane_in_front);
-                    const double distance_right = getClosestElement(right_lane_in_front);
-                    
-                    if(distance_left > distance_right)
-                    {
-                        if(distance_left > distance)
-                        {
-                            std::cout << "Swicht to left lane" << std::endl;
-                            updated_lane = 0U;
-                        }
-                        else if(distance_right > distance)
-                        {
-                            std::cout << "Swicht to right lane" << std::endl;
-                            updated_lane = 2U;
-                        }
-                    }
-                    else
-                    {
-                        if(distance_right > distance)
-                        {
-                            std::cout << "Swicht to right lane" << std::endl;
-                            updated_lane = 2U;
-                        }
-                        else if(distance_left > distance)
-                        {
-                            std::cout << "Swicht to left lane" << std::endl;
-                            updated_lane = 0U;
-                        }
-                    }
-                    
-                    
-                }
-                break;
-            case 2U:
-                // Consider left and middle lane for change
-                if(right_lane_in_front.size() > 0)
-                {
-                    const double distance = getClosestElement(right_lane_in_front);
-                    const double distance_middle = getClosestElement(middle_lane_in_front);
-                    const double distance_left = getClosestElement(left_lane_in_front);
-                    
-                    if(distance_middle > distance)
-                    {
-                        std::cout << "Swicht to middle lane" << std::endl;
-                        updated_lane = 1U;
-                    }
-                }
-                break;
-            default:
-                std::cout << "Ego Vehicle in invalid lane" << std::endl;
-                break;
-        }
-        
-        if(target_lane != updated_lane)
-        {
-            
-            target_lane = updated_lane;
-            changing_lane = true;
-        }
-    }
-    
-    // Adjust speed to speed in current lane
-    switch(current_lane)
-    {
-        case 0U:
-            target_speed = getSpeedOfClosestElement(left_lane_in_front, target_speed);
-            break;
-        case 1U:
-            target_speed = getSpeedOfClosestElement(middle_lane_in_front, target_speed);
-            break;
-        case 2U:
-            target_speed = getSpeedOfClosestElement(right_lane_in_front, target_speed);
-            break;
-        default:
-            break;
-    }
-    
-    */
 }
 
 json Vehicle::get_path(const json input)
@@ -621,7 +491,7 @@ json Vehicle::get_path(const json input)
         sensed_traffic.push_back(Traffic(sensor_fusion[i]));
     }
     
-    //
+    // Update target_speed and target_lane for current situation
     plan_behavior();
 
     // Generate target path and return it in json format

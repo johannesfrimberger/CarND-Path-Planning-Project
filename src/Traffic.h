@@ -19,6 +19,11 @@ public:
     
     Traffic(const json input);
     
+    const unsigned getId() const
+    {
+        return traffic_id;
+    }
+    
     const WorldCoordinates& getWorldCoordinats() const
     {
         return world;
@@ -43,7 +48,7 @@ protected:
     WorldCoordinates world;
     WorldCoordinates speed;
     FrenetCoordinates frenet;
-    const unsigned id;
+    const unsigned traffic_id;
     
 };
 

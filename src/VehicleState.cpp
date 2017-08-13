@@ -5,7 +5,8 @@ using namespace std;
 
 VehicleState::VehicleState():
 world(0,0),
-frenet(0,0)
+frenet(0,0),
+end_path(0,0)
 {
 }
 
@@ -20,8 +21,7 @@ void VehicleState::update(const json input)
     speed = input[1]["speed"];
     
     // Previous path's end s and d values
-    end_path_s = input[1]["end_path_s"];
-    end_path_d = input[1]["end_path_d"];
+    end_path = FrenetCoordinates(input[1]["end_path_s"], input[1]["end_path_d"]);
     
     // Previous path data given to the Planner
     const auto previous_path_x = input[1]["previous_path_x"];
@@ -39,6 +39,7 @@ VehicleState VehicleState::simulate(const double dt) const
     // Copy current traffic object and update positions
     VehicleState simulated_obj = *this;
     
+    // Simulate position at time dt with constant velocity
     simulated_obj.world = simulated_obj.world + (WorldCoordinates(speed * cos(yaw), speed * sin(yaw)) * dt);
     simulated_obj.frenet = simulated_obj.frenet +
     FrenetCoordinates(simulated_obj.speed *  dt, 0);

@@ -2,6 +2,8 @@
 
 #include <math.h>
 
+const double Tools::C_CONVERT_MPS_2_MPH = 2.24;
+
 double Tools::deg2rad(const double x)
 {
     return x * M_PI / 180.0;
@@ -26,10 +28,10 @@ void Tools::splitWorldCoordinates(std::vector<double>& x_vector, std::vector<dou
 
 double Tools::mps2mph(const double x)
 {
-    return x * 2.24;
+    return x * C_CONVERT_MPS_2_MPH;
 }
 
 double Tools::mph2mps(const double x)
 {
-    return x / 2.24;
+    return x / C_CONVERT_MPS_2_MPH;
 }

@@ -23,6 +23,10 @@ public:
     
     /** Split vector in WorldCoordinates to a vector of separate x and y values */
     static void splitWorldCoordinates(std::vector<double>& x_vector, std::vector<double>& y_vector, const std::vector<WorldCoordinates>& input);
+private:
+    
+    // Conversion factor for meter per second to miles per hour
+    static const double C_CONVERT_MPS_2_MPH;
 };
 
 #endif //_TRAFFIC_H_

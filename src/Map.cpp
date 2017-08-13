@@ -6,13 +6,6 @@
 
 using namespace std;
 
-Waypoint::Waypoint(double x, double y, float s, float d_x, float d_y):
-world(x,y),
-world_normal(d_x, d_y),
-frenet(s, 0)
-{
-}
-
 Map::Map(std::string filename)
 {
     // Clear waypoints

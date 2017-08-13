@@ -54,28 +54,26 @@ std::string Vehicle::ppSToString(const Vehicle::PathPlannerStateType state) cons
     }
 }
 
-bool Vehicle::isChangeToLeftLaneBenefitial()
+bool Vehicle::isLaneChangeBenefitial(const std::vector<RelativTraffic>& traffic_new_lane_front, const std::vector<RelativTraffic>& traffic_new_lane_back, const int lane_change) const
 {
     const double closestElementThisLane = getClosestElement(this_lane_in_front);
-    const double closestElementLeft = getClosestElement(left_lane_in_front);
-    const double closestElementInBack = getClosestElement(left_lane_in_back);
-    const int current_lane = state.getFrenet().getLane();
-
-    const double diff = closestElementLeft - closestElementThisLane;
-
-    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane - 1) && (closestElementInBack > C_DIST_TRAFFIC_BACK);
-}
-
-bool Vehicle::isChangeToRightLaneBenefitial()
-{
-    const double closestElementThisLane = getClosestElement(this_lane_in_front);
-    const double closestElementRight = getClosestElement(right_lane_in_front);
-    const double closestElementInBack = getClosestElement(right_lane_in_back);
+    const double closestElementLeft = getClosestElement(traffic_new_lane_front);
+    const double closestElementInBack = getClosestElement(traffic_new_lane_back);
     const int current_lane = state.getFrenet().getLane();
     
-    const double diff = closestElementRight - closestElementThisLane;
+    const double diff = closestElementLeft - closestElementThisLane;
+    
+    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane + lane_change) && (closestElementInBack > C_DIST_TRAFFIC_BACK);
+}
 
-    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane + 1) && (closestElementInBack > C_DIST_TRAFFIC_BACK);
+bool Vehicle::isChangeToLeftLaneBenefitial() const
+{
+    return isLaneChangeBenefitial(left_lane_in_front, left_lane_in_back, -1);
+}
+
+bool Vehicle::isChangeToRightLaneBenefitial() const
+{
+    return isLaneChangeBenefitial(right_lane_in_front, right_lane_in_back, 1);
 }
 
 double Vehicle::getClosestElement(const std::vector<RelativTraffic>& traffic) const
@@ -96,27 +94,28 @@ double Vehicle::getClosestElement(const std::vector<RelativTraffic>& traffic) co
 
 double Vehicle::getSpeedOfClosestElement(const std::vector<RelativTraffic>& traffic, const double default_speed) const
 {
+    // Initialize speed with negative number
     double speed = -1;
     
-    if(traffic.size() > 0U)
-    {
-        double min_distance = 1000;
+    // Find speed of closest element in list
+    double min_distance = 1000;
         
-        for(auto el : traffic)
+    for(auto el : traffic)
+    {
+        const double distance = el.getDistance();
+        if(distance < min_distance)
         {
-            const double distance = el.getDistance();
-            if(distance < min_distance)
-            {
-                min_distance = distance;
-                speed = el.getSpeed();
-            }
+            min_distance = distance;
+            speed = el.getSpeed();
         }
     }
     
+    // If speed was changed from init value return this
     if(speed > 0)
     {
         return speed;
     }
+    // Otherwise return default_speed
     else
     {
         return default_speed;
@@ -131,7 +130,7 @@ json Vehicle::generate_target_path()
     WorldCoordinates ref = state.getWorldCoordinats();
     double ref_yaw = state.getYaw();
     
-    //
+    // Vectore to store upcoming pts
     vector<WorldCoordinates> pts;
     
     // Check if previous path is available
@@ -175,7 +174,7 @@ json Vehicle::generate_target_path()
     else
     {
         // Adjust current velocity
-        double max_acc = 0.224;
+        double max_acc = 0.2;
         if(ref_vel > target_speed)
         {
             ref_vel -= max_acc;
@@ -186,7 +185,7 @@ json Vehicle::generate_target_path()
         }
     }
     
-    // Saturate 
+    // Saturate ref_lane
     if(ref_lane < 0)
     {
         ref_lane = 0;
@@ -232,7 +231,6 @@ json Vehicle::generate_target_path()
     double target_dist = sqrt(pow(target_x, 2) + pow(target_y, 2));
     
     double x_add_on = 0.0;
-    
     const unsigned target_n_waypoints = 50;
     
     for(int i = 0; i < target_n_waypoints - prev_size;i++)
@@ -338,7 +336,6 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeLeft()
         target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
     }
     
-    // State is eithe
     return pathPlannerState;
 }
 
@@ -369,7 +366,6 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeRight()
         target_speed = Tools::mph2mps(C_SPEED_LIMIT_MPH);
     }
     
-    // State is eithe
     return pathPlannerState;
 }
 
@@ -399,7 +395,7 @@ Vehicle::PathPlannerStateType Vehicle::updateChangeRight()
     }
 }
 
-void Vehicle::plan_behavior()
+void Vehicle::update_plath_planner()
 {
     // Find relevant traffic in each lane
     left_lane_in_front.clear();
@@ -413,12 +409,10 @@ void Vehicle::plan_behavior()
     right_2nd_lane_in_front.clear();
     right_2nd_lane_in_back.clear();
     
-    
     const int current_lane = state.getFrenet().getLane();
-
     for(auto traffic : sensed_traffic)
     {
-        Traffic simulated_traffic = traffic.simulate(state.getNumberOfPreviousPathElements() * 0.02);
+        //Traffic simulated_traffic = traffic.simulate(state.getNumberOfPreviousPathElements() * 0.02);
         const int lane_diff = current_lane - static_cast<int>(traffic.getFrenet().getLane());
         switch(lane_diff)
         {
@@ -438,7 +432,8 @@ void Vehicle::plan_behavior()
                 traffic.addToRelevantList(left_2nd_lane_in_front, left_2nd_lane_in_back, state);
                 break;
             default:
-                std::cout << "Invalid lane of a traffic element " << traffic.getId() << std::endl;
+                //std::cout << "Invalid lane of a traffic element " << traffic.getId() << std::endl;
+                break;
         }
     }
 
@@ -489,7 +484,7 @@ json Vehicle::get_path(const json input)
     }
     
     // Update target_speed and target_lane for current situation
-    plan_behavior();
+    update_plath_planner();
 
     // Generate target path and return it in json format
     return generate_target_path();

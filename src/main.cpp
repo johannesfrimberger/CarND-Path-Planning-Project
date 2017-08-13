@@ -33,7 +33,7 @@ int main()
     uWS::Hub h;
     
     // Waypoint map to read from
-    string map_file = "../../data/highway_map.csv";
+    string map_file = "../data/highway_map.csv";
     
     // Initialize map and vehicle class
     Map map(map_file);
@@ -108,83 +108,3 @@ int main()
     }
     h.run();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

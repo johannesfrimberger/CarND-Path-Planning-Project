@@ -3,22 +3,58 @@ Self-Driving Car Engineer Nanodegree Program
 
 ## Model Documentation
 
+The goal of this project is to write an algorithm that controls the
+path of a autonomous vehicle in a highway situation.
+
+The goals of the algorithms is to fulfill (at least) these criteria:
+
+1. Safe --> Avoid collisions with other traffic
+2. Stick to the speed limit
+2. Smooth driving
+4. Stay in lane
+5. Change lanes
+
 ### Code Structure
 
+The implementation is done in C++ and consists of multiple classes we
+will shortly describe here.
 
+All methods and steps are also documented in the code.
 
 #### Coordinate Systems
 
 The position of the car is either given in an XY coordinate tuple or with frenet coordinates.
-For both the ```Coordinates.h``` header provides an object to store the information
+For both the ```Coordinates.h``` header provides an object to
+store the information and do some basic transformations and calculations.
 
 #### Map
 
-The map data is stored in a single object.
+All the map data is stored within a single object. It reads the data from
+a text file and then stores all the waypoints as separate ```Waypoint```
+objects.
+
+The class offers methods to convert the current position in world to frenet
+coordinates and the other way round.
 
 #### Traffic
 
+The ```Traffic``` object is a container for all the data necessary
+to describe another traffic participant.
+It stores the position in world and frenet coordinates as well as the current
+speed.
+
+The ```RelativTraffic``` class is a child class of ```Traffic``` and inherits
+all its members and methods.
+Additionally it stores information relative to another traffic object,
+e.g. the ego vehicle such as distance and whether the traffic object
+is in front or the back of the ego vehicle.
+
 #### VehicleState
+
+Within the ```VehicleState``` object we read the current vehicle state
+and store it.
+It offers methods to access this method and to simulate the vehicle position
+at a certain time.
 
 #### Vehicle
 
@@ -29,9 +65,11 @@ It first reads the current vehicle data and stores it as an
 with the latest sensor readings. This is pushed to the behavior planner
 which updates the target speed and lane. With all this information a
 new trajectory is generated. This information flow is part of the
-```get_path``` method.
+```get_path()``` method.
 
 The core element of the vehicle is the behavior planning algorithm.
+It is implemented as a finite state machine with the following
+states:
 
 ```c
 /** State of path planning algorithm */
@@ -50,17 +88,48 @@ enum PathPlannerStateType
 };
 ```
 
- ```KEEP_LANE```
+The ```KEEP_LANE``` state is the initial and safe state of the path
+planner. It looks ahead in the current lane and if a nearby traffic object
+is detected it either reduces the speed or prepares a lane change.
+
+Before a lane change is done the path planner switches to either to the
+```PREPARE_CHANGE_LEFT``` or ```PREPARE_CHANGE_RIGHT``` state.
+In this state we check if traffic in the target lane prohibits
+the lane change. As we are waiting for a safe lane change we
+recurringly check that the target_lane is still the best choice.
+Further we monitor the vehicles in front in the current lane such that
+we do not crash into them.
+
+If a lane change is considered as safe we update the target lane and
+monitor the transition.
+After the target lane is reached we switch back to the ```KEEP_LANE```
+state.
 
 The states PREPARE_CHANGE_2ndLEFT, PREPARE_CHANGE_2ndRIGHT,
 CHANGE_2ndLEFT, CHANGE_2ndRIGHT and EXIT_STRATEGY are not implemented yet.
 
+The trajectory generator first checks if the vehicle returned
+unvisited path elements from previous request. In order to get a smooth
+path these are add to the next request and we take the estimated vehicle
+position at the end of this path as basis for further request.
+
+From this current position we estimate few XY positions moving along
+the road at the requested lane. This estimation uses the map data as
+basis.
+The speed and the lane position is pre-processed with a rate-limiter
+in order to reduce the accelerations.
+
+These points and the estimated vehicle position is transformed to the
+vehicle CoSy and then a Spline is generated from these points.
+From these Spline interpolation we sample points which give us the newly
+added waypoints for our trajectory.
 
 ### Further development
 
 The current implementation drives smoothly and safe. Nevertheless some
-(possible) improvements already showed up during implementation.
+(possible) improvements already showed up during implementation:
 
+- Use simulated vehicle positions :no_entry_sign:
 - Consider 2nd lane ahead as an option :no_entry_sign:
 - Check which is the "fastest" lane before changing :no_entry_sign:
 - Develop an exit strategy if we get stuck behind another

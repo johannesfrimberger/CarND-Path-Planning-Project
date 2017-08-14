@@ -18,7 +18,7 @@ void VehicleState::update(const json input)
     
     // Vehicle dynamics
     yaw = Tools::deg2rad(input[1]["yaw"]);
-    speed = input[1]["speed"];
+    speed = Tools::mph2mps(input[1]["speed"]);
     
     // Previous path's end s and d values
     end_path = FrenetCoordinates(input[1]["end_path_s"], input[1]["end_path_d"]);

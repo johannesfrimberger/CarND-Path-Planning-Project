@@ -59,11 +59,14 @@ bool Vehicle::isLaneChangeBenefitial(const std::vector<RelativTraffic>& traffic_
     const double closestElementThisLane = getClosestElement(this_lane_in_front);
     const double closestElementLeft = getClosestElement(traffic_new_lane_front);
     const double closestElementInBack = getClosestElement(traffic_new_lane_back);
+    const double speedOfClosestElementInBack = getSpeedOfClosestElement(traffic_new_lane_back, state.getSpeed());
     const int current_lane = state.getFrenet().getLane();
     
     const double diff = closestElementLeft - closestElementThisLane;
     
-    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane + lane_change) && (closestElementInBack > C_DIST_TRAFFIC_BACK);
+    const double diff_speed = (speedOfClosestElementInBack - state.getSpeed());
+    
+    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane + lane_change) && ((closestElementInBack > C_DIST_TRAFFIC_BACK_SAFE) || ((closestElementInBack > C_DIST_TRAFFIC_BACK) && (diff_speed < 5.0)));
 }
 
 bool Vehicle::isChangeToLeftLaneBenefitial() const
@@ -159,29 +162,27 @@ json Vehicle::generate_target_path()
     const double car_s = state.getFrenet().getS();
     
     // Adjust ref_lane slowely to target_lane to avoid too much acceleration
-    double max_steering = 0.02;
-    if(fabs(ref_lane - target_lane) > 0.019)
+    // Adjust current velocity
+    if(fabs(ref_vel - target_speed) > C_MAX_ACC - 0.001)
     {
-        if(ref_lane > target_lane)
-        {
-            ref_lane -= max_steering;
-        }
-        else if(ref_lane < target_lane)
-        {
-            ref_lane += max_steering;
-        }
-    }
-    else
-    {
-        // Adjust current velocity
-        double max_acc = 0.2;
         if(ref_vel > target_speed)
         {
-            ref_vel -= max_acc;
+            ref_vel -= C_MAX_ACC;
         }
         else if(ref_vel < target_speed)
         {
-            ref_vel += max_acc;
+            ref_vel += C_MAX_ACC;
+        }
+    }
+    else if(fabs(ref_lane - target_lane) > C_MAX_STEERING - 0.001)
+    {
+        if(ref_lane > target_lane)
+        {
+            ref_lane -= C_MAX_STEERING;
+        }
+        else if(ref_lane < target_lane)
+        {
+            ref_lane += C_MAX_STEERING;
         }
     }
     
@@ -299,7 +300,7 @@ Vehicle::PathPlannerStateType Vehicle::updateKeepLane()
     if(closestElementThisLane < C_DIST_REDUCE_SPEED)
     {
         // If we have to stay in lane adapt speed
-        target_speed = getSpeedOfClosestElement(this_lane_in_front, target_speed);
+        target_speed = getSpeedOfClosestElement(this_lane_in_front, target_speed) - 1.0;
     }
     else
     {
@@ -322,6 +323,7 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeLeft()
     if((closestElementInBack > C_DIST_TRAFFIC_BACK))
     {
         target_lane -= 1U;
+        target_speed -= .5;
         return CHANGE_LEFT;
     }
     
@@ -352,6 +354,7 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeRight()
     if((closestElementInBack > C_DIST_TRAFFIC_BACK))
     {
         target_lane += 1U;
+        target_speed -= .5f;
         return CHANGE_RIGHT;
     }
 

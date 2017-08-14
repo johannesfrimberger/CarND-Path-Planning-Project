@@ -35,11 +35,18 @@ private:
     // When distance is smaller than this reduce speed
     const double C_DIST_REDUCE_SPEED = 25.0;
     
-    // Save distance to vehicle in the back for lane change
-    const double C_DIST_TRAFFIC_BACK = 8.0;
+    // Safe distance to vehicle in the back for lane change
+    const double C_DIST_TRAFFIC_BACK_SAFE = 25.0;
+    const double C_DIST_TRAFFIC_BACK = 10.0;
     
     // Distance the new lane is at least better
     const double C_DIST_HYST_LANE_CHANGE = 8.0;
+    
+    // Maximum change in lane position
+    const double C_MAX_STEERING = 0.015;
+    
+    // Maximum acceleration
+    const double C_MAX_ACC = 0.2;
     
     /** State of path planning algorithm */
     enum PathPlannerStateType

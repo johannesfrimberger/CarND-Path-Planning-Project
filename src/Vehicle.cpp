@@ -66,7 +66,7 @@ bool Vehicle::isLaneChangeBenefitial(const std::vector<RelativTraffic>& traffic_
     
     const double diff_speed = (speedOfClosestElementInBack - state.getSpeed());
     
-    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane + lane_change) && ((closestElementInBack > C_DIST_TRAFFIC_BACK_SAFE) || ((closestElementInBack > C_DIST_TRAFFIC_BACK) && (diff_speed < 5.0)));
+    return (diff > C_DIST_HYST_LANE_CHANGE) && newLaneIsValid(current_lane + lane_change) && ((closestElementInBack > C_DIST_TRAFFIC_BACK_SAFE) || ((closestElementInBack > C_DIST_TRAFFIC_BACK) && (diff_speed < C_DIFF_SPEED_APPROACHING_BACK)));
 }
 
 bool Vehicle::isChangeToLeftLaneBenefitial() const

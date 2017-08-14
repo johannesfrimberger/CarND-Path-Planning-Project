@@ -27,6 +27,10 @@ private:
     
     // Conversion factor for meter per second to miles per hour
     static const double C_CONVERT_MPS_2_MPH;
+    
+    /** Ensure that angle in radians lays between -pi and +pi */
+    static double NormalizeAngle(const double angle);
+    
 };
 
 #endif //_TRAFFIC_H_

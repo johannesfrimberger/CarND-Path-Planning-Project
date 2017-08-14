@@ -130,7 +130,7 @@ The current implementation drives smoothly and safe. Nevertheless some
 (possible) improvements already showed up during implementation:
 
 - Use simulated vehicle positions :no_entry_sign:
-- Consider 2nd lane ahead as an option :no_entry_sign:
+- Consider 2nd lane ahead as an option :white_check_mark:
 - Check which is the "fastest" lane before changing :no_entry_sign:
 - Develop an exit strategy if we get stuck behind another
 vehicle :no_entry_sign:

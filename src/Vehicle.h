@@ -42,6 +42,9 @@ private:
     // Distance the new lane is at least better
     const double C_DIST_HYST_LANE_CHANGE = 8.0;
     
+    // Distance to object in front for 2nd lane change
+    const double C_DIST_LANE_CHANGE_2nd = 25.0;
+    
     // Maximum change in lane position
     const double C_MAX_STEERING = 0.015;
     
@@ -95,6 +98,12 @@ private:
     
     /** Check if change to right lane is possible and benefitial */
     bool isChangeToRightLaneBenefitial() const;
+    
+    /** Check if change to left lane is possible and benefitial */
+    bool isChangeTo2ndLeftLaneBenefitial() const;
+    
+    /** Check if change to right lane is possible and benefitial */
+    bool isChangeTo2ndRightLaneBenefitial() const;
 
     /** Return distance to closest element in vector */
     double getClosestElement(const std::vector<RelativTraffic>& traffic) const;

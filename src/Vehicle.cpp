@@ -79,6 +79,16 @@ bool Vehicle::isChangeToRightLaneBenefitial() const
     return isLaneChangeBenefitial(right_lane_in_front, right_lane_in_back, 1);
 }
 
+bool Vehicle::isChangeTo2ndLeftLaneBenefitial() const
+{
+    return isLaneChangeBenefitial(left_2nd_lane_in_front, left_2nd_lane_in_back, -2);
+}
+
+bool Vehicle::isChangeTo2ndRightLaneBenefitial() const
+{
+    return isLaneChangeBenefitial(right_2nd_lane_in_front, right_2nd_lane_in_back, 2);
+}
+
 double Vehicle::getClosestElement(const std::vector<RelativTraffic>& traffic) const
 {
     double min_distance = 1000;
@@ -297,6 +307,18 @@ Vehicle::PathPlannerStateType Vehicle::updateKeepLane()
         return PREPARE_CHANGE_RIGHT;
     }
     
+    const bool left2ndBenefetial = isChangeTo2ndLeftLaneBenefitial();
+    const bool right2ndBenefetial = isChangeTo2ndRightLaneBenefitial();
+    
+    if(left2ndBenefetial)
+    {
+        return PREPARE_CHANGE_2ndLEFT;
+    }
+    else if(right2ndBenefetial)
+    {
+        return PREPARE_CHANGE_2ndRIGHT;
+    }
+    
     if(closestElementThisLane < C_DIST_REDUCE_SPEED)
     {
         // If we have to stay in lane adapt speed
@@ -315,19 +337,35 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeLeft()
     // Check if lane change is safe
     const double closestElementInBack = getClosestElement(left_lane_in_back);
     
-    if(!isChangeToLeftLaneBenefitial())
+    if(!isChangeToLeftLaneBenefitial() && (PREPARE_CHANGE_LEFT == pathPlannerState))
     {
         return KEEP_LANE;
     }
+    else if(!isChangeTo2ndLeftLaneBenefitial() && (PREPARE_CHANGE_2ndLEFT == pathPlannerState))
+    {
+        return KEEP_LANE;
+    }
+
+    const double closestElementThisLane = getClosestElement(this_lane_in_front);
+    const double closestElementLeft = getClosestElement(left_lane_in_front);
     
-    if((closestElementInBack > C_DIST_TRAFFIC_BACK))
+    const bool change_is_safe = (PREPARE_CHANGE_2ndLEFT == pathPlannerState) ? (closestElementLeft > C_DIST_LANE_CHANGE_2nd) : true;
+    
+    if((closestElementInBack > C_DIST_TRAFFIC_BACK) && change_is_safe)
     {
         target_lane -= 1U;
         target_speed -= .5;
-        return CHANGE_LEFT;
+        
+        if(PREPARE_CHANGE_2ndLEFT == pathPlannerState)
+        {
+            return CHANGE_2ndLEFT;
+        }
+        else
+        {
+            return CHANGE_LEFT;
+        }
     }
-    
-    const double closestElementThisLane = getClosestElement(this_lane_in_front);
+
     if(closestElementThisLane < C_DIST_REDUCE_SPEED)
     {
         // If we have to stay in lane adapt speed
@@ -346,19 +384,35 @@ Vehicle::PathPlannerStateType Vehicle::updatePrepareChangeRight()
     // Check if lane change is safe
     const double closestElementInBack = getClosestElement(right_lane_in_back);
     
-    if(!isChangeToRightLaneBenefitial())
+    if(!isChangeToRightLaneBenefitial() && (PREPARE_CHANGE_RIGHT == pathPlannerState))
+    {
+        return KEEP_LANE;
+    }
+    else if(!isChangeTo2ndRightLaneBenefitial() && (PREPARE_CHANGE_2ndRIGHT == pathPlannerState))
     {
         return KEEP_LANE;
     }
     
-    if((closestElementInBack > C_DIST_TRAFFIC_BACK))
+    const double closestElementThisLane = getClosestElement(this_lane_in_front);
+    const double closestElementRight = getClosestElement(right_lane_in_front);
+
+    const bool change_is_safe = (PREPARE_CHANGE_2ndRIGHT == pathPlannerState) ? (closestElementRight > C_DIST_LANE_CHANGE_2nd) : true;
+    
+    if((closestElementInBack > C_DIST_TRAFFIC_BACK) && change_is_safe)
     {
         target_lane += 1U;
         target_speed -= .5f;
-        return CHANGE_RIGHT;
+        
+        if(PREPARE_CHANGE_2ndRIGHT == pathPlannerState)
+        {
+            return CHANGE_2ndRIGHT;
+        }
+        else
+        {
+            return CHANGE_RIGHT;
+        }
     }
 
-    const double closestElementThisLane = getClosestElement(this_lane_in_front);
     if(closestElementThisLane < C_DIST_REDUCE_SPEED)
     {
         // If we have to stay in lane adapt speed
@@ -377,7 +431,14 @@ Vehicle::PathPlannerStateType Vehicle::updateChangeLeft()
     // If we are currently changing lane check if new lane has already been reached
     if(fabs(state.getFrenet().getLane() - target_lane) < 0.1)
     {
-        return KEEP_LANE;
+        if(CHANGE_2ndLEFT == pathPlannerState)
+        {
+            return PREPARE_CHANGE_2ndLEFT;
+        }
+        else
+        {
+            return KEEP_LANE;
+        }
     }
     else
     {
@@ -390,7 +451,14 @@ Vehicle::PathPlannerStateType Vehicle::updateChangeRight()
     // If we are currently changing lane check if new lane has already been reached
     if(fabs(state.getFrenet().getLane() - target_lane) < 0.1)
     {
-        return KEEP_LANE;
+        if(CHANGE_2ndRIGHT == pathPlannerState)
+        {
+            return PREPARE_CHANGE_2ndRIGHT;
+        }
+        else
+        {
+            return KEEP_LANE;
+        }
     }
     else
     {
@@ -449,15 +517,19 @@ void Vehicle::update_plath_planner()
             new_state = updateKeepLane();
             break;
         case PREPARE_CHANGE_LEFT:
+        case PREPARE_CHANGE_2ndLEFT:
             new_state = updatePrepareChangeLeft();
             break;
         case PREPARE_CHANGE_RIGHT:
+        case PREPARE_CHANGE_2ndRIGHT:
             new_state = updatePrepareChangeRight();
             break;
         case CHANGE_LEFT:
+        case CHANGE_2ndLEFT:
             new_state = updateChangeLeft();
             break;
         case CHANGE_RIGHT:
+        case CHANGE_2ndRIGHT:
             new_state = updateChangeRight();
             break;
         default:
